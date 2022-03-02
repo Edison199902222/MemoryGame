@@ -16,12 +16,15 @@
         <entry key="app/src/main/res/drawable/ic_send.xml" value="0.1635" />
         <entry key="app/src/main/res/drawable/ic_star.xml" value="0.1635" />
         <entry key="app/src/main/res/drawable/ic_work.xml" value="0.1635" />
+        <entry key="app/src/main/res/layout/activity_create.xml" value="0.16494627607629653" />
         <entry key="app/src/main/res/layout/activity_main.xml" value="0.2776268115942029" />
+        <entry key="app/src/main/res/layout/dialog_board_size.xml" value="0.2776268115942029" />
         <entry key="app/src/main/res/layout/memory_card.xml" value="0.2776268115942029" />
+        <entry key="app/src/main/res/menu/menu_main.xml" value="0.2111111111111111" />
       </map>
     </option>
   </component>
-  <component name="ProjectRootManager" version="2" languageLevel="JDK_1_8" default="true" project-jdk-name="1.8 (2)" project-jdk-type="JavaSDK">
+  <component name="ProjectRootManager" version="2" languageLevel="JDK_16_PREVIEW" project-jdk-name="1.8 (2)" project-jdk-type="JavaSDK">
     <output url="file://$PROJECT_DIR$/build/classes" />
   </component>
   <component name="ProjectType">
