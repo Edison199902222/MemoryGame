@@ -2,7 +2,7 @@ package com.example.mymemory.models
 
 import com.example.mymemory.utils.DEFAULT_ICONS
 // memory game class，用来包含所有东西
-class MemoryGame(private val boardSize: BoardSize) {
+class MemoryGame(private val boardSize: BoardSize, customImages: List<String>?) {
 
     val cards: List<MemoryCard>
     var numsPairsFound = 0
@@ -11,11 +11,17 @@ class MemoryGame(private val boardSize: BoardSize) {
     private var indexOfSingleSelectedCard: Int? = null
 
     init{
-        // 从list 里面取出对应的image
-        val chosenImages = DEFAULT_ICONS.shuffled().take(boardSize.getPairs())
-        val randomizedImages = (chosenImages + chosenImages).shuffled()
-        // 把randomizedImages每一个元素转换成memory card class
-        cards = randomizedImages.map{ MemoryCard(it) }
+        if (customImages == null) {
+            // 从list 里面取出对应的image
+            val chosenImages = DEFAULT_ICONS.shuffled().take(boardSize.getPairs())
+            val randomizedImages = (chosenImages + chosenImages).shuffled()
+            // 把randomizedImages每一个元素转换成memory card class
+            cards = randomizedImages.map{ MemoryCard(it) }
+        } else {
+            val randomizedImages = (customImages + customImages).shuffled()
+            cards = randomizedImages.map{ MemoryCard(it.hashCode(), it) }
+        }
+
     }
 
     fun flipCard(position: Int): Boolean {

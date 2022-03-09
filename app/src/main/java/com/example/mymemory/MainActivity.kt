@@ -3,6 +3,7 @@ package com.example.mymemory
 import android.animation.ArgbEvaluator
 import android.app.Activity
 import android.content.Intent
+import android.graphics.Color
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
@@ -10,23 +11,28 @@ import android.view.LayoutInflater
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.widget.EditText
 import android.widget.RadioGroup
 import android.widget.TextView
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
-import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.mymemory.models.BoardSize
-import com.example.mymemory.models.MemoryCard
 import com.example.mymemory.models.MemoryGame
-import com.example.mymemory.utils.DEFAULT_ICONS
+import com.example.mymemory.models.UserImageList
 import com.example.mymemory.utils.EXTRA_BOARD_SIZE
+import com.example.mymemory.utils.EXTRA_GAME_NAME
+import com.github.jinatonic.confetti.CommonConfetti
 import com.google.android.material.snackbar.Snackbar
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.storage.ktx.storage
+import com.squareup.picasso.Picasso
 
 class MainActivity : AppCompatActivity() {
     companion object {
@@ -42,6 +48,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var startForResult: ActivityResultLauncher<Intent>
     // 建立board
     private var boardSize: BoardSize = BoardSize.EASY
+    private var customGameImages: List<String>? = null
+    private var gameName: String? = null
+    private val storage = Firebase.storage
+    private val db = Firebase.firestore
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -51,13 +62,43 @@ class MainActivity : AppCompatActivity() {
                 val intent = result.data
                 // Handle the Intent
                 //do stuff here
+                val customGameName = intent?.getStringExtra(EXTRA_GAME_NAME)
+                if (customGameName == null) {
+                    Log.e(TAG, "Got null custom game from Create activity")
+                } else {
+                    downloadGame(customGameName)
+                }
+
             }
         }
         rvBoard = findViewById(R.id.rvBoard)
         tvNumMoves = findViewById(R.id.tvNumMoves)
         tvNumPairs = findViewById(R.id.tvNumPairs)
         clRoot = findViewById(R.id.clRoot)
+
         setupBoard()
+    }
+    // 从firebase 里面下载图片并且把图片放在grid上
+    private fun downloadGame(customGameName: String) {
+        db.collection("games").document(customGameName).get().addOnSuccessListener { document ->
+            val userImagesList = document.toObject(UserImageList::class.java)
+            if (userImagesList?.images == null) {
+                Log.e(TAG, "Invalid custom game data from Firestore")
+                Snackbar.make(clRoot, "Sorry we couldn't find such a game, $customGameName", Snackbar.LENGTH_LONG).show()
+                return@addOnSuccessListener
+            }
+            val numCards = userImagesList.images.size * 2
+            boardSize = BoardSize.getByValue(numCards)
+            customGameImages = userImagesList.images
+            for (imagesUrl in userImagesList.images) {
+                Picasso.get().load(imagesUrl).fetch()
+            }
+            Snackbar.make(clRoot, "You're now playing '$customGameName'!", Snackbar.LENGTH_LONG).show()
+            gameName = customGameName
+            setupBoard()
+        }.addOnFailureListener{exception ->
+            Log.e(TAG, "Exception when retrieving game", exception)
+        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
@@ -85,8 +126,23 @@ class MainActivity : AppCompatActivity() {
                 showCreationDialog()
                 return true
             }
+            R.id.mi_download -> {
+                showDownloadDialog()
+                return true
+            }
         }
         return super.onOptionsItemSelected(item)
+    }
+
+    private fun showDownloadDialog() {
+        val boardDownloadView = LayoutInflater.from(this).inflate(R.layout.dialog_download_board, null)
+        showAlertDialog("Fetch memory game", boardDownloadView, View.OnClickListener {
+            // Grab the text of game name that user want to download
+            // 用view 去寻找
+            val etDownloadGame = boardDownloadView.findViewById<EditText>(R.id.etDownloadGame)
+            val gameToDownload = etDownloadGame.text.toString().trim()
+            downloadGame(gameToDownload)
+        })
     }
 
     private fun showCreationDialog() {
@@ -102,7 +158,7 @@ class MainActivity : AppCompatActivity() {
             }
             //
             val intent = Intent(this, CreateActivity::class.java)
-            intent.putExtra(EXTRA_BOARD_SIZE, desireBoardSize)
+            intent.putExtra(EXTRA_BOARD_SIZE, BoardSize.EASY)
             startForResult.launch(intent)
         })
 
@@ -127,6 +183,8 @@ class MainActivity : AppCompatActivity() {
                 R.id.rbMedium -> BoardSize.MEDIUM
                 else -> BoardSize.HARD
             }
+            gameName = null
+            customGameImages = null
             setupBoard()
         })
     }
@@ -157,6 +215,7 @@ class MainActivity : AppCompatActivity() {
             tvNumPairs.text = "Pairs: ${memoryGame.numsPairsFound} / ${boardSize.getPairs()}"
             if (memoryGame.haveWonGame()) {
                 Snackbar.make(clRoot, "You already won", Snackbar.LENGTH_LONG).show()
+                CommonConfetti.rainingConfetti(clRoot, intArrayOf(Color.YELLOW, Color.GREEN, Color.MAGENTA)).oneShot()
             }
         }
         tvNumMoves.text = "Moves: ${memoryGame.getNumMoves()}"
@@ -164,6 +223,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupBoard() {
+        supportActionBar?.title = gameName ?:getString(R.string.app_name)
         when (boardSize) {
             BoardSize.EASY -> {
                 tvNumPairs.text = "Pairs: 0 / 4"
@@ -178,7 +238,7 @@ class MainActivity : AppCompatActivity() {
                 tvNumMoves.text = "Hard: 6 x 6"
             }
         }
-        memoryGame = MemoryGame(boardSize)
+        memoryGame = MemoryGame(boardSize, customGameImages)
         // 作用是把data set 和 RecyclerView的view 连接起来，第一个参数是在哪里显示，第二个是一共有几个
         // 最后一个参数是匿名class，extend了CardClickListener 接口
         adapter = MemoryBoardAdapter(this, boardSize, memoryGame.cards, object: MemoryBoardAdapter.CardClickListener {

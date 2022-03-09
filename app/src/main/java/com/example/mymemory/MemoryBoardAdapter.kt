@@ -12,6 +12,7 @@ import androidx.core.view.ViewCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.example.mymemory.models.BoardSize
 import com.example.mymemory.models.MemoryCard
+import com.squareup.picasso.Picasso
 import kotlin.math.min
 
 class MemoryBoardAdapter(
@@ -61,7 +62,15 @@ class MemoryBoardAdapter(
             // 把image和button 连接起来
             val memoryCard = cards[position]
             // 用Face_up去判断现在该呈现什么样子的image
-            imageButton.setImageResource(if (memoryCard.isFaceUp) memoryCard.identifier else R.drawable.ic_launcher_background)
+            if (memoryCard.isFaceUp) {
+                if (memoryCard.imageUrl != null) {
+                    Picasso.get().load(memoryCard.imageUrl).placeholder(R.drawable.ic_image).into(imageButton)
+                } else {
+                    imageButton.setImageResource(memoryCard.identifier)
+                }
+            } else {
+                imageButton.setImageResource(R.drawable.ic_launcher_background)
+            }
             // match 后颜色会变灰
             imageButton.alpha = if (memoryCard.isMatched) .4f else 1.0f
             val colorStateList = if (memoryCard.isMatched) ContextCompat.getColorStateList(context, R.color.color_gray) else null
